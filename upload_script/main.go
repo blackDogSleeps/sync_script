@@ -1,11 +1,13 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 )
 
@@ -131,6 +133,67 @@ func getUserInput() {
 	fmt.Println("Аминь!")
 }
 
+func makeNewArchive() {
+	zipPath := filepath.Join("..", "dist.zip")
+	zipFile, err := os.Create(zipPath)
+
+	if err != nil {
+		fmt.Println("Couldn't create 'dist.zip': ", err)
+		os.Exit(0)
+	}
+	
+	defer zipFile.Close()
+
+	writer := zip.NewWriter(zipFile)
+	defer writer.Close()
+
+	writeErr := writer.AddFS(os.DirFS("."))
+
+	if writeErr != nil {
+		fmt.Println("Couldn't zip the files: ", writeErr)
+		os.Exit(0)
+	}
+
+	cpCmd := exec.Command("mv", zipPath, ".")
+	_, cpErr := cpCmd.Output()
+
+	if cpErr != nil {
+		fmt.Println("cpErr: ", cpErr)
+		os.Exit(0)
+	}
+
+	fmt.Println("DONE!")
+}
+
+func makeDistArchive() {
+	//echo "Архивируем dist папку"
+	//cd ./dist
+	//chmod -R 775 *
+	//rm -f dist.zip
+	//zip -r dist.zip .
+
+	fmt.Println("Архивируем dist папку")
+	dirErr := os.Chdir(filepath.Join("dist"))
+	
+	if dirErr != nil {
+		fmt.Println("Some trouble with os.Chdir: ", dirErr)
+		os.Exit(0)
+	}
+	// chmod the go way (and windows way)
+
+	// Remove old 'dist.zip'
+	rmCmd := exec.Command("rm", "-rf", "dist.zip")
+	_, rmCmdErr := rmCmd.Output()
+
+	if rmCmdErr != nil {
+		fmt.Println("Couldn't delete 'dist.zip': ", rmCmdErr)
+		os.Exit(0)
+	}
+
+	// Make new archive
+	makeNewArchive()
+}
+
 func main() {
 	envVars := getLocalEnvVariables()
 	appPath := fmt.Sprintf("/var/www/projects/app/%s", envVars["appName"])
@@ -153,5 +216,7 @@ func main() {
 	//ssh $SERVER_USER_NAME@88.99.160.4 -p 58533 'rm -rf '$_appPath'/* '$_appPath'/.htaccess'
 	serverCommands = fmt.Sprintf("rm -rf %s/* %s/.htaccess", appPath)
 	//execCommand(envVars["userName"], serverCommands)
+
+	makeDistArchive()
 
 }
