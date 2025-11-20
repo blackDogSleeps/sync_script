@@ -105,7 +105,6 @@ func execCommand(userName string, serverCommands string) {
 
 func getUserInput() {
 	var reply string
-
 	fmt.Println("Удалить их и загрузить новые (y/n)?")
 
 	for reply != "y" {
@@ -114,7 +113,7 @@ func getUserInput() {
 		scanErr := scanner.Err()
 
 		if scanErr != nil {
-			fmt.Println("Something wrong with scanner: ", scanErr)
+			fmt.Println("Can't read your input: ", scanErr)
 			os.Exit(0)
 		}
 
@@ -131,6 +130,29 @@ func getUserInput() {
 	}
 
 	fmt.Println("Аминь!")
+}
+
+
+func makeDistArchive() {
+	fmt.Println("Архивируем dist папку")
+	dirErr := os.Chdir(filepath.Join("dist"))
+	
+	if dirErr != nil {
+		fmt.Println("Some trouble with os.Chdir: ", dirErr)
+		os.Exit(0)
+	}
+
+	// Remove old 'dist.zip'
+	rmCmd := exec.Command("rm", "-rf", "dist.zip")
+	_, rmCmdErr := rmCmd.Output()
+
+	if rmCmdErr != nil {
+		fmt.Println("Couldn't delete 'dist.zip': ", rmCmdErr)
+		os.Exit(0)
+	}
+
+	// Make new archive
+	makeNewArchive()
 }
 
 func makeNewArchive() {
@@ -161,37 +183,33 @@ func makeNewArchive() {
 		fmt.Println("cpErr: ", cpErr)
 		os.Exit(0)
 	}
-
-	fmt.Println("DONE!")
 }
 
-func makeDistArchive() {
-	//echo "Архивируем dist папку"
-	//cd ./dist
-	//chmod -R 775 *
-	//rm -f dist.zip
-	//zip -r dist.zip .
+func uploadArchiveToServer(userName string, pubKeyPath string, appPath string) {
+	// Command we're translating:
+	//scp -i $SERVER_PUB_KEY_PATH -P 58533 dist.zip $SERVER_USER_NAME@88.99.160.4:$_appPath
+	serverLogin := fmt.Sprintf("%s@88.99.160.4:%s", userName, appPath)
+	ctx := context.Background()
+	uploadCmd := exec.CommandContext(
+		ctx, 
+		"scp", 
+		"-i", 
+		pubKeyPath,
+		"-P", 
+		"58533",
+		"dist.zip",
+		serverLogin,
+	)
 
-	fmt.Println("Архивируем dist папку")
-	dirErr := os.Chdir(filepath.Join("dist"))
-	
-	if dirErr != nil {
-		fmt.Println("Some trouble with os.Chdir: ", dirErr)
+	uploadCmd.Stdin = os.Stdin
+	uploadCmd.Stdout = os.Stdout
+	uploadCmd.Stderr = os.Stderr
+	uploadErr := uploadCmd.Run()
+
+	if uploadErr != nil {
+		fmt.Println("scp command didn't fly: ", uploadErr)
 		os.Exit(0)
 	}
-	// chmod the go way (and windows way)
-
-	// Remove old 'dist.zip'
-	rmCmd := exec.Command("rm", "-rf", "dist.zip")
-	_, rmCmdErr := rmCmd.Output()
-
-	if rmCmdErr != nil {
-		fmt.Println("Couldn't delete 'dist.zip': ", rmCmdErr)
-		os.Exit(0)
-	}
-
-	// Make new archive
-	makeNewArchive()
 }
 
 func main() {
@@ -212,11 +230,26 @@ func main() {
 	execCommand(envVars["userName"], serverCommands)
 	getUserInput()
 
-	fmt.Println("Удаляем файлы")
+	// The ssh command we're translating:
 	//ssh $SERVER_USER_NAME@88.99.160.4 -p 58533 'rm -rf '$_appPath'/* '$_appPath'/.htaccess'
-	serverCommands = fmt.Sprintf("rm -rf %s/* %s/.htaccess", appPath)
-	//execCommand(envVars["userName"], serverCommands)
-
+	fmt.Println("Удаляем файлы")
+	serverCommands = fmt.Sprintf("rm -rf %s/* %s/.htaccess", appPath, appPath)
+	execCommand(envVars["userName"], serverCommands)
 	makeDistArchive()
+	fmt.Println("Теперь копируем архив на сервер")
+	uploadArchiveToServer(envVars["userName"], envVars["pubKeyPath"], appPath)
 
+	// The ssh command we're translating:
+	//ssh $SERVER_USER_NAME@88.99.160.4 -p 58533 'bash -c "cd '$_appPath'/ && unzip dist.zip && rm -f dist.zip"'
+	fmt.Println("Распакуем его и удаляем архив")
+	serverCommands = fmt.Sprintf("bash -c 'cd %s/ && unzip dist.zip && rm -f dist.zip && chmod -R 775 *'", appPath)
+	execCommand(envVars["userName"], serverCommands)
+	fmt.Println("Идём и проверяем что всё открывается!")
+	fmt.Printf("https://%s.app.motivationportal.ru\n", envVars["appName"])
+	dirErr := os.Chdir(filepath.Join(".."))
+	
+	if dirErr != nil {
+		fmt.Println("Some trouble with os.Chdir: ", dirErr)
+		os.Exit(0)
+	}
 }
