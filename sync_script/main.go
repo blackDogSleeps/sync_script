@@ -71,6 +71,7 @@ func main() {
 	}
 
 	projectName := args[2]
+	// TODO: import from vars.sh instead
 	prodApps := []string{
 		"base",
 		"vniizht",
@@ -114,9 +115,11 @@ func main() {
 	buildAssets("tailwind-build")
 	buildAssets("svg")
 
+	successMessage := "Hooray! It's done!"
+
 	if projectName != "prod" {
 		copyFiles(projectName, filesToCopy, directories)
-		fmt.Println("Hooray! It's done!")
+		fmt.Println(successMessage)
 		return
 	}
 
@@ -124,5 +127,5 @@ func main() {
 		copyFiles(prodApps[i], filesToCopy, directories)
 	}
 
-	fmt.Println("Hooray! It's done!")
+	fmt.Println(successMessage)
 }
