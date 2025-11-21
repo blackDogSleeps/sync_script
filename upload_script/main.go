@@ -143,7 +143,7 @@ func makeDistArchive() {
 	}
 
 	// Remove old 'dist.zip'
-	rmCmdErr := os.Remove("dist.zip")
+	rmCmdErr := os.RemoveAll("dist.zip")
 
 	if rmCmdErr != nil {
 		fmt.Println("Couldn't delete 'dist.zip': ", rmCmdErr)
@@ -163,17 +163,16 @@ func makeNewArchive() {
 		os.Exit(0)
 	}
 	
-	defer zipFile.Close()
-
 	writer := zip.NewWriter(zipFile)
-	defer writer.Close()
-
 	writeErr := writer.AddFS(os.DirFS("."))
 
 	if writeErr != nil {
 		fmt.Println("Couldn't zip the files: ", writeErr)
 		os.Exit(0)
 	}
+
+	writer.Close()
+	zipFile.Close()
 
 	currDir, _ := os.Getwd()
 	newZipPath := filepath.Join(currDir, "dist.zip")
