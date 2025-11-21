@@ -143,8 +143,7 @@ func makeDistArchive() {
 	}
 
 	// Remove old 'dist.zip'
-	rmCmd := exec.Command("rm", "-rf", "dist.zip")
-	_, rmCmdErr := rmCmd.Output()
+	rmCmdErr := os.Remove("dist.zip")
 
 	if rmCmdErr != nil {
 		fmt.Println("Couldn't delete 'dist.zip': ", rmCmdErr)
@@ -176,8 +175,9 @@ func makeNewArchive() {
 		os.Exit(0)
 	}
 
-	cpCmd := exec.Command("mv", zipPath, ".")
-	_, cpErr := cpCmd.Output()
+	currDir, _ := os.Getwd()
+	newZipPath := filepath.Join(currDir, "dist.zip")
+	cpErr := os.Rename(zipPath, newZipPath)
 
 	if cpErr != nil {
 		fmt.Println("cpErr: ", cpErr)
