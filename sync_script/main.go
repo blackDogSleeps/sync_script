@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,12 +9,52 @@ import (
 	"slices"
 )
 
+func getProdAppsFromLocalVariable() []string {
+	// Reading from 'vars.sh'
+	envFilePath := filepath.Join("apps", "_sh", "vars.sh")
+	envFile, envErr := os.Open(envFilePath)
+
+	defer envFile.Close()
+
+	if envErr != nil {
+		fmt.Println("Couldn't read file:", envErr)
+		os.Exit(0)
+	}
+
+	envReader := bufio.NewReader(envFile)
+	newLine := uint8(10)
+	buffer, err := envReader.ReadBytes(newLine)
+
+	if err != nil {
+		fmt.Println("Can't read file: ", err)
+		os.Exit(0)
+	}
+
+	var prodApps []string
+	length := len(buffer)
+
+	for length > 0 {
+		buffer, _ = envReader.ReadBytes(newLine)
+		length = len(buffer)
+
+		if length < 2 {
+			continue
+		}
+
+		// If line starts with "
+		if buffer[0] == 34 {
+			prodApps = append(prodApps, string(buffer[1 : length - 2]))
+		}
+	}
+
+	return prodApps
+}
+
 func copyFilesHelper(fileName string, path string) {
 	fmt.Printf("Copying '%s' ", fileName)
 	fmt.Printf("to '%s'", path)
 
-	rmCmd := exec.Command("rm", "-rf", path)
-	_, rmErr := rmCmd.Output()
+	rmErr := os.RemoveAll(path)
 
 	if rmErr != nil {
 		fmt.Println("rm error: ", rmErr)
@@ -71,22 +112,7 @@ func main() {
 	}
 
 	projectName := args[2]
-	// TODO: import from vars.sh instead
-	prodApps := []string{
-		"base",
-		"vniizht",
-		"rolf",
-		"azconnect",
-		"storeez12",
-		"ecco",
-		"borjomi",
-		"avtosushi",
-		"asg",
-		"ekonika",
-		//"leagueofcare" # клиент ушёл
-		// "dreamer" # клиент ушёл
-	}
-
+	prodApps := getProdAppsFromLocalVariable()
 	filesToCopy := []string{
 		//"src",
 		".browserslistrc",
