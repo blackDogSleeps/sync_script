@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 )
 
@@ -50,9 +52,9 @@ func getProdAppsFromLocalVariable() []string {
 	return prodApps
 }
 
-func copyFilesHelper(fileName string, path string) {
+func copyFilesHelper(fileName string, path string, isDir bool) {
 	fmt.Printf("Copying '%s' ", fileName)
-	fmt.Printf("to '%s'", path)
+	fmt.Printf("to '%s'\n", path)
 
 	rmErr := os.RemoveAll(path)
 
@@ -62,37 +64,74 @@ func copyFilesHelper(fileName string, path string) {
 	}
 
 	cmd := exec.Command("cp", "-rf", fileName, path)
-	cmdRes, cmdErr := cmd.Output()
 
-	if cmdErr != nil {
-		fmt.Println("Something's not right", cmdErr)
-		os.Exit(0)
+	if (runtime.GOOS == "windows") {
+		if (isDir) {
+			cmd = exec.Command(
+				"robocopy", 
+				fileName, 
+				path, 
+				"/e",
+				"/nfl",
+				"/ndl",
+				"/njh",
+				"/njs",
+				"/nc",
+				"/ns",
+				"/np")
+		} else {
+			cmd = exec.Command("xcopy", fileName, path)
+			cmdIn, _ := cmd.StdinPipe()
+			cmdIn.Write([]byte("echo f"))
+		}
 	}
 
-	fmt.Println(string(cmdRes))
+	cmd.Run()
 }
 
 func copyFiles(projectName string, filesToCopy []string, directories []string) {
 	for i := 0; i < len(filesToCopy); i++ {
-		copyFilesHelper(filesToCopy[i], filepath.Join("apps", projectName, filesToCopy[i]))
+		copyFilesHelper(
+			filesToCopy[i],
+			filepath.Join("apps",
+			projectName,
+			filesToCopy[i]),
+			false)
 	}
 
 	for i := 0; i < len(directories); i++ {
-		copyFilesHelper(directories[i], filepath.Join("apps", projectName, directories[i]))
+		copyFilesHelper(
+			directories[i],
+			filepath.Join("apps", projectName, directories[i]),
+			true)
 	}
 }
 
 func buildAssets(arg string) {
-	npmCommand := exec.Command("npm", "run", arg)
-	npmOut, npmErr := npmCommand.Output()
+	//npmCommand := exec.Command("npm", "run", arg)
+	//npmOut, npmErr := npmCommand.Output()
 
-	fmt.Printf("building %v\n", arg)
-	fmt.Println(string(npmOut))
+	//fmt.Printf("building %v\n", arg)
+	//fmt.Println(string(npmOut))
 
+	//if npmErr != nil {
+	//	fmt.Println("error: ", npmErr)
+	//	os.Exit(0)
+	//}
+
+	ctx := context.Background()
+	cmd := exec.CommandContext(ctx, "npm", "run", arg)
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	npmErr := cmd.Run()
 	if npmErr != nil {
-		fmt.Println("error: ", npmErr)
+		fmt.Println("npm run error: ", npmErr)
 		os.Exit(0)
 	}
+
 }
 
 func main() {
