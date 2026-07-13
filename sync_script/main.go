@@ -38,14 +38,21 @@ func getProdAppsFromLocalVariable() []string {
 	for length > 0 {
 		buffer, _ = envReader.ReadBytes(newLine)
 		length = len(buffer)
+		tailCut := length - 2
 
 		if length < 2 {
 			continue
 		}
 
+		// if end of line is CRLF i.e. '\r\n'
+		// because '\r' == 13 
+		if buffer[length - 2] == 13 {
+			tailCut = length - 3
+		}
+
 		// If line starts with "
 		if buffer[0] == 34 {
-			prodApps = append(prodApps, string(buffer[1 : length - 2]))
+			prodApps = append(prodApps, string(buffer[1 : tailCut]))
 		}
 	}
 
